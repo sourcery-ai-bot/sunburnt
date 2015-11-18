@@ -411,7 +411,8 @@ class BaseSearch(object):
     """Base class for common search options management"""
     option_modules = ('query_obj', 'filter_obj', 'paginator',
                       'more_like_this', 'highlighter', 'faceter',
-                      'sorter', 'facet_querier', 'field_limiter',)
+                      'sorter', 'facet_querier', 'field_limiter',
+                      'grouper')
 
     result_constructor = dict
 
@@ -424,6 +425,7 @@ class BaseSearch(object):
         self.sorter = SortOptions(self.schema)
         self.field_limiter = FieldLimitOptions(self.schema)
         self.facet_querier = FacetQueryOptions(self.schema)
+        self.grouper = GroupOptions(self.schema)
 
     def clone(self):
         return self.__class__(interface=self.interface, original=self)
@@ -513,6 +515,11 @@ class BaseSearch(object):
     def join(self, join_from, join_to, *args, **kwargs):
         newself = self.clone()
         newself.query_obj.join(join_from, join_to, *args, **kwargs)
+        return newself
+
+    def group_by(self, field, **kwargs):
+        newself = self.clone()
+        newself.grouper.update(field, **kwargs)
         return newself
 
     def options(self):
@@ -1060,6 +1067,56 @@ class FacetQueryOptions(Options):
                     'facet':True}
         else:
             return {}
+
+class GroupOptions(Options):
+
+    fields = ('field', 'limit', 'main', 'ngroups', 'sort',
+        'format', 'offset', 'truncate')
+    field = None
+    limit = None
+    main = None
+    ngroups = None
+    sort = None
+    format = None
+    offset = None
+    truncate = None
+
+    def __init__(self, schema, original=None):
+        self.schema = schema
+
+        if original is not None:
+            for f in self.fields:
+                setattr(self, f, getattr(original, f, None))
+
+    def update(self, field, limit=None, main=None, ngroups=None,
+               sort=None, format="grouped", offset=None, truncate=None):
+        # NOTE: could check field against schema;
+        # must be single-valued and indexed
+        # self.schema.check_fields(fields, {"stored": True})
+        self.field = field
+        self.limit = limit
+        self.main = main
+        self.ngroups = ngroups
+        self.sort = sort
+        self.format = format
+        self.offset = offset
+        self.truncate = truncate
+
+    def options(self):
+        opts = {}
+        # no group options if no field is set
+        # (eventually could be group.func or group.query)
+        if self.field is None:
+            return {}
+
+        opts = {'group': True, 'group.field': self.field}
+
+        for f in self.fields:
+            val = getattr(self, f, None)
+            if val is not None:
+                opts['group.%s' % f] = val
+        return opts
+
 
 def params_from_dict(**kwargs):
     utf8_params = []

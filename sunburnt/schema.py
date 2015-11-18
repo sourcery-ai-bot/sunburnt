@@ -141,7 +141,7 @@ class SolrField(object):
             elif self.name.endswith("*"):
                 self.wildcard_at_start = False
             else:
-                raise SolrError("Dynamic fields must have * at start or end of name (field %s)" % 
+                raise SolrError("Dynamic fields must have * at start or end of name (field %s)" %
                         self.name)
 
     def match(self, name):
@@ -153,7 +153,7 @@ class SolrField(object):
 
     def normalize(self, value):
         """ Normalize the given value according to the field type.
-        
+
         This method does nothing by default, returning the given value
         as is. Child classes may override this method as required.
         """
@@ -192,7 +192,7 @@ class SolrUnicodeField(SolrField):
         try:
             return unicode(value)
         except UnicodeError:
-            raise SolrError("%s could not be coerced to unicode (field %s)" % 
+            raise SolrError("%s could not be coerced to unicode (field %s)" %
                     (value, self.name))
 
 
@@ -207,7 +207,7 @@ class SolrBooleanField(SolrField):
             elif value.lower() == "false":
                 return False
             else:
-                raise ValueError("sorry, I only understand simple boolean strings (field %s)" % 
+                raise ValueError("sorry, I only understand simple boolean strings (field %s)" %
                         self.name)
         return bool(value)
 
@@ -217,7 +217,7 @@ class SolrBinaryField(SolrField):
         try:
             return str(value)
         except (TypeError, ValueError):
-            raise SolrError("Could not convert data to binary string (field %s)" % 
+            raise SolrError("Could not convert data to binary string (field %s)" %
                     self.name)
 
     def to_solr(self, value):
@@ -232,7 +232,7 @@ class SolrNumericalField(SolrField):
         try:
             v = self.base_type(value)
         except (OverflowError, TypeError, ValueError):
-            raise SolrError("%s is invalid value for %s (field %s)" % 
+            raise SolrError("%s is invalid value for %s (field %s)" %
                     (value, self.__class__, self.name))
         if v < self.min or v > self.max:
             raise SolrError("%s out of range for a %s (field %s)" %
@@ -708,13 +708,14 @@ class SolrResponse(object):
         self.original_xml = xmlmsg
         doc = lxml.etree.fromstring(xmlmsg)
         details = dict(value_from_node(n) for n in
-                       doc.xpath("/response/lst[@name!='moreLikeThis']"))
+                       doc.xpath("/response/lst[@name!='moreLikeThis' and @name!='grouped']"))
         details['responseHeader'] = dict(details['responseHeader'])
         for attr in ["QTime", "params", "status"]:
             setattr(self, attr, details['responseHeader'].get(attr))
         if self.status != 0:
             raise ValueError("Response indicates an error")
-        result_node = doc.xpath("/response/result")[0]
+        # FIXME: this probably only works with simple group results (for now)
+        result_node = doc.xpath("/response/result|/response/lst[@name='grouped']/lst/result")[0]
         self.result = SolrResult.from_xml(schema, result_node)
         self.facet_counts = SolrFacetCounts.from_response(details)
         self.highlighting = dict((k, dict(v))
