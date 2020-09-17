@@ -516,7 +516,7 @@ param_encode_data = (
 
 def check_url_encode_data(kwargs, output):
     # Convert for pre-2.6.5 python
-    s_kwargs = dict((k.encode('utf8'), v) for k, v in kwargs.items())
+    s_kwargs = {k.encode('utf8'): v for k, v in kwargs.items()}
     assert params_from_dict(**s_kwargs) == output
 
 def test_url_encode_data():

@@ -271,9 +271,7 @@ class SolrUUIDField(SolrUnicodeField):
         return uuid.UUID(v)
 
     def from_user_data(self, v):
-        if v == 'NEW':
-            return v
-        elif isinstance(v, uuid.UUID):
+        if v == 'NEW' or isinstance(v, uuid.UUID):
             return v
         else:
             return uuid.UUID(v)
@@ -458,8 +456,7 @@ class SolrSchema(object):
     # From XML Datatypes
     attrib_translator = {"true": True, "1": True, "false": False, "0": False}
     def translate_attributes(self, attribs):
-        return dict((k, self.attrib_translator.get(v, v))
-            for k, v in attribs.items())
+        return {k: self.attrib_translator.get(v, v) for k, v in attribs.items()}
 
     def missing_fields(self, field_names):
         return [name for name in set(self.fields.keys()) - set(field_names)
@@ -518,10 +515,11 @@ class SolrSchema(object):
         if doc.tag in 'doc':
             return dict([self.parse_result_doc(n) for n in doc.getchildren()])
         field_class = self.match_field(name)
-        if field_class is None and name == "score":
-            field_class = SolrScoreField()
-        elif field_class is None:
-            raise SolrError("unexpected field found in result")
+        if field_class is None:
+            if name == "score":
+                field_class = SolrScoreField()
+            else:
+                raise SolrError("unexpected field found in result")
         return name, SolrFieldInstance.from_solr(field_class, doc.text or '').to_user_data()
 
 
@@ -650,14 +648,12 @@ class SolrResponse(object):
         result_node = doc.xpath("/response/result")[0]
         self.result = SolrResult(schema, result_node)
         self.facet_counts = SolrFacetCounts.from_response(details)
-        self.highlighting = dict((k, dict(v))
-                                 for k, v in details.get("highlighting", ()))
+        self.highlighting = {k: dict(v) for k, v in details.get("highlighting", ())}
         more_like_these_nodes = \
             doc.xpath("/response/lst[@name='moreLikeThis']/result")
         more_like_these_results = [SolrResult(schema, node)
                                   for node in more_like_these_nodes]
-        self.more_like_these = dict((n.name, n)
-                                         for n in more_like_these_results)
+        self.more_like_these = {n.name: n for n in more_like_these_results}
         if len(self.more_like_these) == 1:
             self.more_like_this = self.more_like_these.values()[0]
         else:
@@ -694,8 +690,8 @@ class SolrResult(object):
 
 
 def object_to_dict(o, names):
-    return dict((name, getattr(o, name)) for name in names
-                 if (hasattr(o, name) and getattr(o, name) is not None))
+    return {name: getattr(o, name) for name in names
+                     if (hasattr(o, name) and getattr(o, name) is not None)}
 
 # This is over twice the speed of the shorter one immediately above.
 # apparently hasattr is really slow; try/except is faster.
@@ -757,7 +753,7 @@ def value_from_node(node):
     elif node.tag == 'long':
         value = long(node.text)
     elif node.tag == 'bool':
-        value = True if node.text == "true" else False
+        value = node.text == "true"
     elif node.tag in ('float', 'double'):
         value = float(node.text)
     elif node.tag == 'date':

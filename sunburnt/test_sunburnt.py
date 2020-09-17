@@ -200,9 +200,7 @@ def test_slice_pagination():
 
 # IndexErrors as appropriate
 
-pagination_index_tests = (
-((None, None), range(0, 10),
-   ((0, None),
+pagination_index_tests = (((None, None), range(10), ((0, None),
     (5, None),
     (9, None),
     (-1, None),
@@ -211,8 +209,7 @@ pagination_index_tests = (
     (10, IndexError),
     (20, IndexError),
     (-10, IndexError),
-    (-20, IndexError))),
-((2, 6), range(2, 8),
+    (-20, IndexError))), ((2, 6), range(2, 8),
    ((0, None),
     (3, None),
     (5, None),
@@ -222,8 +219,7 @@ pagination_index_tests = (
     (6, IndexError),
     (20, IndexError),
     (-7, IndexError),
-    (-20, IndexError))),
-)
+    (-20, IndexError))))
 
 def check_index_pagination(p_args, a, s, e):
     if e is None:

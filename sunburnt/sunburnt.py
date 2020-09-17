@@ -54,10 +54,7 @@ class SolrConnection(object):
 
     def update(self, **kwargs):
         body = update_doc
-        if body:
-            headers = {"Content-Type":"text/xml; charset=utf-8"}
-        else:
-            headers = {}
+        headers = {"Content-Type":"text/xml; charset=utf-8"} if body else {}
         url = self.url_for_update(**kwargs)
         r, c = self.request(url, method="POST", body=body,
                             headers=headers)

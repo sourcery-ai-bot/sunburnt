@@ -70,10 +70,7 @@ class LuceneQuery(object):
     def serialize_term_queries(self, terms):
         s = []
         for name, value_set in terms.items():
-            if name:
-                field = self.schema.match_field(name)
-            else:
-                field = self.schema.default_field
+            field = self.schema.match_field(name) if name else self.schema.default_field
             if name:
                 s += [u'%s:%s' % (name, value.to_query()) for value in value_set]
             else:
@@ -102,10 +99,8 @@ class LuceneQuery(object):
             return False
         elif self._or:
             return not (child._or or child._pow)
-        elif (self._and or self._not):
+        elif self._and or self._not:
             return not (child._and or child._not or child._pow)
-        elif self._pow is not False:
-            return True
         else:
             return True
 
@@ -115,7 +110,7 @@ class LuceneQuery(object):
         for arg in args:
             for k, v in arg.items():
                 d[k].update(v)
-        return dict((k, v) for k, v in d.items())
+        return {k: v for k, v in d.items()}
 
     def normalize(self):
         if self.normalized:
@@ -170,10 +165,14 @@ class LuceneQuery(object):
                 self = newself
                 mutated = True
         elif self._and or self._or:
-            if not self.terms and not self.phrases and not self.ranges:
-                if len(self.subqueries) == 1:
-                    self = self.subqueries[0]
-                    mutated = True
+            if (
+                not self.terms
+                and not self.phrases
+                and not self.ranges
+                and len(self.subqueries) == 1
+            ):
+                self = self.subqueries[0]
+                mutated = True
         self.normalized = True
         return self, mutated
 
@@ -464,7 +463,7 @@ class BaseSearch(object):
         for option_module in self.option_modules:
             options.update(getattr(self, option_module).options())
         # Next line is for pre-2.6.5 python
-        return dict((k.encode('utf8'), v) for k, v in options.items())
+        return {k.encode('utf8'): v for k, v in options.items()}
 
     def transform_result(self, result, constructor):
         if constructor is not dict:
@@ -564,8 +563,8 @@ class BaseSearch(object):
             k = operator.index(k)
             if k < 0:
                 k += self.count()
-                if k < 0:
-                    raise IndexError("list index out of range")
+            if k < 0:
+                raise IndexError("list index out of range")
 
             # Otherwise do the query anyway, don't count() to avoid extra Solr call
             k += offset
@@ -712,11 +711,10 @@ class Options(object):
             fields = [field for field in self.fields if field]
             self.field_names_in_opts(opts, fields)
         for field_name, field_opts in self.fields.items():
-            if not field_name:
-                for field_opt, v in field_opts.items():
+            for field_opt, v in field_opts.items():
+                if not field_name:
                     opts['%s.%s'%(self.option_name, field_opt)] = v
-            else:
-                for field_opt, v in field_opts.items():
+                else:
                     opts['f.%s.%s.%s'%(field_name, self.option_name, field_opt)] = v
         return opts
 
@@ -904,10 +902,7 @@ class SortOptions(Options):
     option_name = "sort"
     def __init__(self, schema, original=None):
         self.schema = schema
-        if original is None:
-            self.fields = []
-        else:
-            self.fields = copy.copy(original.fields)
+        self.fields = [] if original is None else copy.copy(original.fields)
 
     def update(self, field):
         # We're not allowing function queries a la Solr1.5
@@ -962,10 +957,7 @@ class FieldLimitOptions(Options):
 
     def options(self):
         opts = {}
-        if self.all_fields:
-            fields = set("*")
-        else:
-            fields = self.fields
+        fields = set("*") if self.all_fields else self.fields
         if self.score:
             fields.add("score")
         if fields:
